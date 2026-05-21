@@ -1,0 +1,11 @@
+{
+  "short_name": "RH Nursery",
+  "name": "Rainbow Hitech Nursery",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#040c04",
+  "background_color": "#040c04",
+  "icons": [
+    { "src": "favicon.ico", "sizes": "64x64", "type": "image/x-icon" }
+  ]
+}
