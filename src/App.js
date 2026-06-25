@@ -448,6 +448,135 @@ export default function App() {
     window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
+  // Draw the bill onto a canvas and return it as a PNG Blob
+  const renderBillImage = (paymentMethod = "upi") => {
+    return new Promise((resolve) => {
+      const W = 600;
+      const padding = 30;
+      const lineH = 28;
+
+      const itemRows = billItems.map(i => `${i.name}  ×${i.qty}  =  ₹${i.amount}`);
+      const total = parseFloat(qrAmount || billTotal).toLocaleString();
+
+      // Estimate height based on content
+      let lines = 7 + itemRows.length + (billCustomer.phone ? 1 : 0) + (qrNote ? 1 : 0) + 4;
+      const H = padding * 2 + lines * lineH + 40;
+
+      const canvas = document.createElement("canvas");
+      const scale = 2; // sharper image
+      canvas.width = W * scale;
+      canvas.height = H * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.scale(scale, scale);
+
+      // Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, W, H);
+
+      let y = padding + 10;
+      ctx.textAlign = "center";
+
+      // Shop name
+      ctx.fillStyle = "#14532d";
+      ctx.font = "bold 26px Georgia, serif";
+      ctx.fillText(settings.ownerName || APP_NAME, W / 2, y);
+      y += lineH;
+
+      // Date
+      ctx.fillStyle = "#555";
+      ctx.font = "14px Arial, sans-serif";
+      ctx.fillText(new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }), W / 2, y);
+      y += lineH * 0.8;
+
+      // Divider
+      ctx.strokeStyle = "#163d16";
+      ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(W - padding, y); ctx.stroke();
+      y += lineH * 0.7;
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#222";
+      ctx.font = "15px Arial, sans-serif";
+      if (billCustomer.name) { ctx.fillText(`Customer: ${billCustomer.name}`, padding, y); y += lineH * 0.8; }
+      if (billCustomer.phone) { ctx.fillText(`Phone: ${billCustomer.phone}`, padding, y); y += lineH * 0.8; }
+      y += lineH * 0.3;
+
+      ctx.strokeStyle = "#ccc";
+      ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(W - padding, y); ctx.stroke();
+      y += lineH * 0.8;
+
+      // Items
+      ctx.font = "16px Arial, sans-serif";
+      billItems.forEach(i => {
+        ctx.fillStyle = "#222";
+        ctx.textAlign = "left";
+        ctx.fillText(i.name, padding, y);
+        ctx.textAlign = "right";
+        ctx.fillText(`×${i.qty} = ₹${i.amount}`, W - padding, y);
+        y += lineH;
+      });
+
+      ctx.strokeStyle = "#163d16";
+      ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(W - padding, y); ctx.stroke();
+      y += lineH;
+
+      // Total
+      ctx.fillStyle = "#14532d";
+      ctx.font = "bold 22px Arial, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Total", padding, y);
+      ctx.textAlign = "right";
+      ctx.fillText(`₹${total}`, W - padding, y);
+      y += lineH * 1.2;
+
+      if (qrNote) {
+        ctx.fillStyle = "#555";
+        ctx.font = "13px Arial, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(qrNote, padding, y);
+        y += lineH * 0.8;
+      }
+
+      // Payment method
+      ctx.fillStyle = "#14532d";
+      ctx.font = "bold 15px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(paymentMethod === "cash" ? "✅ Payment via Cash" : "✅ Payment via UPI", W / 2, y);
+      y += lineH * 0.8;
+      if (paymentMethod === "upi" && settings.upiId) {
+        ctx.font = "13px Arial, sans-serif";
+        ctx.fillStyle = "#555";
+        ctx.fillText(`UPI: ${settings.upiId}`, W / 2, y);
+      }
+
+      canvas.toBlob((blob) => resolve(blob), "image/png", 1);
+    });
+  };
+
+  // Share the bill as an image via the phone's native share sheet (falls back to text WhatsApp link)
+  const shareBillImage = async (paymentMethod = "upi", toCustomer = false) => {
+    if (toCustomer && !billCustomer.phone) { flash("❌ Enter customer phone first!"); return; }
+    try {
+      const blob = await renderBillImage(paymentMethod);
+      const file = new File([blob], "bill.png", { type: "image/png" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "Bill",
+          text: buildBillText(paymentMethod),
+        });
+        flash("✅ Bill shared!");
+      } else {
+        // Fallback: open WhatsApp with text only (older browsers / desktop)
+        if (toCustomer) openCustomerWhatsApp(paymentMethod);
+        else openWhatsApp(paymentMethod);
+        flash("📋 Your browser can't share images directly — sent as text instead.");
+      }
+    } catch (e) {
+      if (e.name !== "AbortError") flash("❌ Couldn't share bill: " + e.message);
+    }
+  };
+
   const filtered = useMemo(() => items.filter(i =>
     (i.name?.toLowerCase().includes(search.toLowerCase()) || i.description?.toLowerCase().includes(search.toLowerCase())) &&
     (filterCat === "All" || i.category === filterCat)
@@ -954,8 +1083,7 @@ export default function App() {
                       </button>
                       <button onClick={() => {
                         if (!billCustomer.name) { flash("❌ Enter customer name first!"); return; }
-                        openWhatsApp("cash");
-                        flash("✅ Cash bill sent to WhatsApp!");
+                        shareBillImage("cash", false);
                       }}
                         style={{ ...st.btn("linear-gradient(135deg,#1c1502,#2e1f04)", "#fbbf24", "#fbbf24"), flex: 1, padding: 16, fontSize: 14 }}>
                         💵 Cash → Send Bill
@@ -1040,17 +1168,18 @@ export default function App() {
 
                 {/* WhatsApp buttons */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
-                  <button onClick={openWhatsApp}
+                  <button onClick={() => shareBillImage("upi", false)}
                     style={{ ...st.btn("#052e16", "#25d366", "#25d366"), width: "100%", padding: 14, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                     <span style={{ fontSize: 20 }}>💬</span> Send Bill to My WhatsApp
                   </button>
                   {billCustomer.phone && (
-                    <button onClick={openCustomerWhatsApp}
+                    <button onClick={() => shareBillImage("upi", true)}
                       style={{ ...st.btn("#052016", "#4ade80", "#4ade80"), width: "100%", padding: 14, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                       <span style={{ fontSize: 20 }}>📤</span> Send Bill to Customer WhatsApp
                     </button>
                   )}
                 </div>
+
 
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => setBillView("build")} style={{ ...st.btn("#081408", "#245224", "#3d7a3d"), flex: 1 }}>← Edit Bill</button>
