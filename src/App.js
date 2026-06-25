@@ -414,7 +414,7 @@ export default function App() {
     setBillItems(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const buildBillText = () => {
+  const buildBillText = (paymentMethod = "upi") => {
     const lines = [
       `🌿 *${settings.ownerName || APP_NAME}*`,
       `📅 ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`,
@@ -426,14 +426,14 @@ export default function App() {
       `💰 *Total: ₹${parseFloat(qrAmount || billTotal).toLocaleString()}*`,
       qrNote ? `📝 ${qrNote}` : "",
       ``,
-      `✅ Payment via UPI`,
-      settings.upiId ? `UPI: ${settings.upiId}` : "",
+      paymentMethod === "cash" ? `✅ Payment via Cash` : `✅ Payment via UPI`,
+      paymentMethod === "upi" && settings.upiId ? `UPI: ${settings.upiId}` : "",
     ].filter(Boolean).join("\n");
     return lines;
   };
 
-  const openWhatsApp = () => {
-    const text = buildBillText();
+  const openWhatsApp = (paymentMethod = "upi") => {
+    const text = buildBillText(paymentMethod);
     const phone = settings.ownerPhone ? settings.ownerPhone.replace(/\D/g, "") : "";
     const url = phone
       ? `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`
@@ -441,9 +441,9 @@ export default function App() {
     window.open(url, "_blank");
   };
 
-  const openCustomerWhatsApp = () => {
+  const openCustomerWhatsApp = (paymentMethod = "upi") => {
     if (!billCustomer.phone) { flash("❌ Enter customer phone first!"); return; }
-    const text = buildBillText();
+    const text = buildBillText(paymentMethod);
     const phone = billCustomer.phone.replace(/\D/g, "");
     window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -943,14 +943,24 @@ export default function App() {
                           value={qrNote} onChange={e => setQrNote(e.target.value)} style={st.inp} />
                       </div>
                     </div>
-                    <button onClick={() => {
-                      if (!billCustomer.name) { flash("❌ Enter customer name first!"); return; }
-                      if (!settings.upiId) { flash("❌ UPI ID not set! Go to ⚙️ Settings first."); return; }
-                      setBillView("qr");
-                    }}
-                      style={{ ...st.btn("linear-gradient(135deg,#0a2e1a,#061a0e)", "#4ade80", "#4ade80"), width: "100%", padding: 16, fontSize: 15 }}>
-                      📲 Generate UPI QR →
-                    </button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => {
+                        if (!billCustomer.name) { flash("❌ Enter customer name first!"); return; }
+                        if (!settings.upiId) { flash("❌ UPI ID not set! Go to ⚙️ Settings first."); return; }
+                        setBillView("qr");
+                      }}
+                        style={{ ...st.btn("linear-gradient(135deg,#0a2e1a,#061a0e)", "#4ade80", "#4ade80"), flex: 1, padding: 16, fontSize: 14 }}>
+                        📲 Generate UPI QR →
+                      </button>
+                      <button onClick={() => {
+                        if (!billCustomer.name) { flash("❌ Enter customer name first!"); return; }
+                        openWhatsApp("cash");
+                        flash("✅ Cash bill sent to WhatsApp!");
+                      }}
+                        style={{ ...st.btn("linear-gradient(135deg,#1c1502,#2e1f04)", "#fbbf24", "#fbbf24"), flex: 1, padding: 16, fontSize: 14 }}>
+                        💵 Cash → Send Bill
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
