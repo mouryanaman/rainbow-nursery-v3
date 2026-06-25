@@ -27,7 +27,7 @@ const PRICE_LIST = [
   { name: "Nimbu (Lemon) — Medium", category: "🌳 Fruit Trees", price: 250, salePrice: 220 },
   { name: "Nimbu (Lemon) — Small", category: "🌳 Fruit Trees", price: 150, salePrice: 130 },
   { name: "China Nimbu (China Lemon)", category: "🌳 Fruit Trees", price: 150, salePrice: 130 },
-  { name: "Thailand Mango", category: "🌳 Fruit Trees", price: 1200, salePrice: 800 },
+
   { name: "Apple", category: "🌳 Fruit Trees", price: 350, salePrice: 320 },
   { name: "Naspati (Pear)", category: "🌳 Fruit Trees", price: 350, salePrice: 320 },
   { name: "Jamun (Kg-10 size)", category: "🌳 Fruit Trees", price: 350, salePrice: 320 },
@@ -52,7 +52,7 @@ const PRICE_LIST = [
   { name: "Anjir (Fig)", category: "🌳 Fruit Trees", price: 250, salePrice: 220 },
   { name: "Grapes", category: "🌳 Fruit Trees", price: 200, salePrice: 150 },
   { name: "Avocado", category: "🌳 Fruit Trees", price: 800, salePrice: 600 },
-  { name: "Bara-Masa Mango (all-season)", category: "🌳 Fruit Trees", price: 250, salePrice: 200 },
+
   { name: "Guava — Size 1", category: "🌳 Fruit Trees", price: 250, salePrice: 220 },
   { name: "Guava — Size 2", category: "🌳 Fruit Trees", price: 200, salePrice: 180 },
   { name: "Guava — Size 3", category: "🌳 Fruit Trees", price: 150, salePrice: 120 },
@@ -378,6 +378,16 @@ export default function App() {
     flash("🗑 Sale deleted & stock restored!");
   };
 
+  const [confirmClearSales, setConfirmClearSales] = useState(false);
+  const handleClearAllSales = async () => {
+    setSyncing(true);
+    await supabase.from("sales").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setSyncing(false);
+    setConfirmClearSales(false);
+    setSales([]);
+    flash("🗑 All sales data cleared!");
+  };
+
   // Bill builder helpers
   const billTotal = billItems.reduce((a, b) => a + b.amount, 0);
 
@@ -432,21 +442,7 @@ export default function App() {
     return lines;
   };
 
-  const openWhatsApp = (paymentMethod = "upi") => {
-    const text = buildBillText(paymentMethod);
-    const phone = settings.ownerPhone ? settings.ownerPhone.replace(/\D/g, "") : "";
-    const url = phone
-      ? `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
-  };
 
-  const openCustomerWhatsApp = (paymentMethod = "upi") => {
-    if (!billCustomer.phone) { flash("❌ Enter customer phone first!"); return; }
-    const text = buildBillText(paymentMethod);
-    const phone = billCustomer.phone.replace(/\D/g, "");
-    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(text)}`, "_blank");
-  };
 
   // Draw the bill onto a canvas and return it as a PNG Blob
   const renderBillImage = (paymentMethod = "upi") => {
@@ -567,10 +563,7 @@ export default function App() {
         });
         flash("✅ Bill shared!");
       } else {
-        // Fallback: open WhatsApp with text only (older browsers / desktop)
-        if (toCustomer) openCustomerWhatsApp(paymentMethod);
-        else openWhatsApp(paymentMethod);
-        flash("📋 Your browser can't share images directly — sent as text instead.");
+        flash("❌ Image sharing not supported on this device/browser.");
       }
     } catch (e) {
       if (e.name !== "AbortError") flash("❌ Couldn't share bill: " + e.message);
@@ -1218,6 +1211,12 @@ export default function App() {
                   {t === "today" ? "📅 Today" : "📋 All Sales"}
                 </button>
               ))}
+              {role === "admin" && (
+                <button onClick={() => setConfirmClearSales(true)}
+                  style={{ ...st.btn("#1f0202", "#7f1d1d", "#f87171"), fontSize: 11, padding: "6px 10px" }}>
+                  🗑 Clear All
+                </button>
+              )}
             </div>
             {displaySales.length === 0
               ? <div style={{ ...st.card, textAlign: "center", color: "#3d7a3d", fontFamily: "'DM Sans',sans-serif", padding: 36 }}>No sales yet</div>
@@ -1565,6 +1564,22 @@ export default function App() {
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => handleDelete(confirmDel.id)} style={{ ...st.btn("#1f0202", "#7f1d1d", "#f87171"), flex: 1 }}>Yes, Delete</button>
               <button onClick={() => setConfirmDel(null)} style={{ ...st.btn("#081408", "#245224", "#3d7a3d"), flex: 1 }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* CLEAR ALL SALES CONFIRM */}
+      {confirmClearSales && (
+        <div style={st.ovr}>
+          <div style={{ ...st.card, width: "100%", maxWidth: 340, textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#f87171", marginBottom: 6 }}>Clear All Sales?</div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "#3d7a3d", marginBottom: 18 }}>
+              This will permanently delete <strong style={{ color: "#f87171" }}>all {sales.length} sales records</strong>. Inventory stock will not be affected.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleClearAllSales} style={{ ...st.btn("#1f0202", "#7f1d1d", "#f87171"), flex: 1 }}>Yes, Clear All</button>
+              <button onClick={() => setConfirmClearSales(false)} style={{ ...st.btn("#081408", "#245224", "#3d7a3d"), flex: 1 }}>Cancel</button>
             </div>
           </div>
         </div>
