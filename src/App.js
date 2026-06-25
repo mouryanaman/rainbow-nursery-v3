@@ -209,6 +209,16 @@ export default function App() {
   const [addPriceListModal, setAddPriceListModal] = useState(null); // product from price list
   const [addCustomProductModal, setAddCustomProductModal] = useState(false);
   const [customProduct, setCustomProduct] = useState({ name: "", price: "", qty: "1" });
+  const [modalQty, setModalQty] = useState(1);
+  const [modalPrice, setModalPrice] = useState(0);
+
+  // Reset modal quantity/price whenever a new price-list item is opened
+  useEffect(() => {
+    if (addPriceListModal) {
+      setModalQty(1);
+      setModalPrice(addPriceListModal.salePrice || addPriceListModal.price);
+    }
+  }, [addPriceListModal]);
 
   const flash = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -1190,8 +1200,6 @@ export default function App() {
               </div>
             )}
             {(() => {
-              const [modalQty, setModalQty] = useState(1);
-              const [modalPrice, setModalPrice] = useState(addPriceListModal.salePrice || addPriceListModal.price);
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div>
