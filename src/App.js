@@ -804,6 +804,12 @@ export default function App() {
                   onChange={e => setBillSearch(e.target.value)}
                   style={{ ...st.inp, marginBottom: 10 }} />
 
+                {/* Custom product */}
+                <button onClick={() => setAddCustomProductModal(true)}
+                  style={{ ...st.btn("#0a1a2e", "#1e3a6e", "#60a5fa"), width: "100%", marginBottom: 14, padding: 12, fontSize: 13 }}>
+                  ➕ Add Custom Product (not in list)
+                </button>
+
                 {/* From inventory */}
                 {items.length > 0 && (
                   <div style={{ marginBottom: 8 }}>
@@ -839,11 +845,6 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-                {/* Custom product */}
-                <button onClick={() => setAddCustomProductModal(true)}
-                  style={{ ...st.btn("#0a1a2e", "#1e3a6e", "#60a5fa"), width: "100%", marginTop: 12, padding: 12, fontSize: 13 }}>
-                  ➕ Add Custom Product (not in list)
-                </button>
                 {billItems.length > 0 && (
                   <button onClick={() => setBillView("build")}
                     style={{ ...st.btn("linear-gradient(135deg,#0a2e1a,#061a0e)", "#4ade80", "#4ade80"), width: "100%", marginTop: 10, padding: 14, fontSize: 14 }}>
